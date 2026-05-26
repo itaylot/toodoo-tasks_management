@@ -8,29 +8,32 @@ datasource db {
 }
 
 model Course {
-  id    Int    @id @default(autoincrement())
-  name  String
-  code  String?
-  tasks Task[]
+  id        String @id @default(cuid())
+  name      String
+  code      String?
+  color     String
+  createdAt DateTime @default(now())
+  tasks     Task[]
 }
 
 model Task {
-  id          Int          @id @default(autoincrement())
+  id          String        @id @default(cuid())
   title       String
   description String?
-  deadline    DateTime?
-  status      TaskStatus   @default(PENDING)
+  deadline    DateTime
+  status      TaskStatus   @default(NOT_STARTED)
   priority    TaskPriority @default(MEDIUM)
   course      Course       @relation(fields: [courseId], references: [id])
-  courseId    Int
+  courseId    String
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
 
 enum TaskStatus {
-  PENDING
+  NOT_STARTED
   IN_PROGRESS
-  COMPLETED
+  DONE
+  BLOCKED
 }
 
 enum TaskPriority {
