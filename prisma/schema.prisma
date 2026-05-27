@@ -23,7 +23,7 @@ model Task {
   deadline    DateTime
   status      String    @default("NOT_STARTED")
   priority    String    @default("MEDIUM")
-  course      Course    @relation(fields: [courseId], references: [id])
+  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId    String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

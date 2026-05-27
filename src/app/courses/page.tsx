@@ -5,8 +5,17 @@ import Link from 'next/link';
 
 const DEFAULT_COLOR = '#2563eb';
 
-async function getCourses(): Promise<Course[]> {
-  return prisma.course.findMany({ orderBy: { createdAt: 'desc' } });
+async function getCourses(): Promise<(Course & { taskCount: number })[]> {
+  const courses = await prisma.course.findMany({ orderBy: { createdAt: 'desc' } });
+  
+  const coursesWithTaskCount = await Promise.all(
+    courses.map(async (course: Course) => {
+      const taskCount = await prisma.task.count({ where: { courseId: course.id } });
+      return { ...course, taskCount };
+    })
+  );
+
+  return coursesWithTaskCount;
 }
 
 async function addCourse(formData: FormData) {
@@ -51,9 +60,14 @@ export default async function CoursesPage() {
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-indigo-600">ניהול קורסים</p>
           <h1 className="text-3xl font-bold text-slate-900">ניהול קורסים</h1>
           <p className="text-slate-600">הוסף קורס חדש או ערוך קורסים קיימים דרך הרשימה.</p>
-          <Link href="/" className="inline-flex w-fit items-center rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-sm text-slate-800 transition hover:bg-slate-200">
-            חזור לדף הבית
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/" className="inline-flex w-fit items-center rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-sm text-slate-800 transition hover:bg-slate-200">
+              חזור לדף הבית
+            </Link>
+            <Link href="/tasks" className="inline-flex w-fit items-center rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-sm text-slate-800 transition hover:bg-slate-200">
+              משימות
+            </Link>
+          </div>
         </div>
 
         <form action={addCourse} className="grid gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-6">
@@ -129,6 +143,14 @@ export default async function CoursesPage() {
                   <input type="hidden" name="courseId" value={course.id} />
                   <button
                     type="submit"
+                    onClick={(e) => {
+                      if (course.taskCount > 0) {
+                        const confirmed = window.confirm(`לקורס הזה יש ${course.taskCount} משימות משויכות. מחיקת הקורס תמחק גם את המשימות שלו. האם אתה בטוח?`);
+                        if (!confirmed) {
+                          e.preventDefault();
+                        }
+                      }
+                    }}
                     className="rounded-2xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
                   >
                     מחיקה
