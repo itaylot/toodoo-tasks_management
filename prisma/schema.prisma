@@ -17,27 +17,17 @@ model Course {
 }
 
 model Task {
-  id          String        @id @default(cuid())
+  id          String    @id @default(cuid())
   title       String
   description String?
   deadline    DateTime
-  status      TaskStatus   @default(NOT_STARTED)
-  priority    TaskPriority @default(MEDIUM)
-  course      Course       @relation(fields: [courseId], references: [id])
+  status      String    @default("NOT_STARTED")
+  priority    String    @default("MEDIUM")
+  course      Course    @relation(fields: [courseId], references: [id])
   courseId    String
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
-enum TaskStatus {
-  NOT_STARTED
-  IN_PROGRESS
-  DONE
-  BLOCKED
-}
-
-enum TaskPriority {
-  LOW
-  MEDIUM
-  HIGH
-}
+// Task status values: NOT_STARTED, IN_PROGRESS, DONE, BLOCKED
+// Task priority values: LOW, MEDIUM, HIGH

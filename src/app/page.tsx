@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function HomePage() {
   return (
     <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
@@ -10,6 +12,9 @@ export default function HomePage() {
           <p className="mt-4 max-w-2xl text-base leading-8 text-slate-600">
             התחל במקצועות ומשימות ולאחר מכן הוסף סינון לפי סטטוס, עדיפות ותאריך יעד.
           </p>
+          <Link href="/courses" className="mt-6 inline-flex rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700">
+            ניהול קורסים
+          </Link>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
