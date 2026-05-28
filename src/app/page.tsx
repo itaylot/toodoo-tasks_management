@@ -1,56 +1,98 @@
-import Link from 'next/link';
+import type { Course } from '@prisma/client';
+import { revalidatePath } from 'next/cache';
+import { CoursesWidget } from '@/components/dashboard/CoursesWidget';
+import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
+import { QuickActionsWidget } from '@/components/dashboard/QuickActionsWidget';
+import { UpcomingDeadlinesWidget } from '@/components/dashboard/UpcomingDeadlinesWidget';
+import { UrgentTasksWidget } from '@/components/dashboard/UrgentTasksWidget';
+import {
+  getCourseSummaries,
+  getUpcomingDeadlines,
+  getUrgentTasks,
+  type TaskWithCourse,
+} from '@/lib/dashboard/dashboard-rules';
+import { prisma } from '@/lib/prisma';
+import type { TaskStatus } from '@/lib/taskHelpers';
 
-export default function HomePage() {
+const statusOptions: TaskStatus[] = ['TODO', 'IN_PROGRESS', 'COMPLETED'];
+
+async function getDashboardData(): Promise<{ courses: Course[]; tasks: TaskWithCourse[] }> {
+  const [courses, tasks] = await Promise.all([
+    prisma.course.findMany({ orderBy: { createdAt: 'desc' } }),
+    prisma.task.findMany({
+      include: { course: true },
+      orderBy: { dueDate: 'asc' },
+    }),
+  ]);
+
+  return { courses, tasks };
+}
+
+async function updateTaskStatus(formData: FormData) {
+  'use server';
+
+  const taskId = formData.get('taskId')?.toString();
+  const newStatus = formData.get('status')?.toString();
+
+  if (!taskId || !newStatus) return;
+  if (!statusOptions.includes(newStatus as TaskStatus)) return;
+
+  await prisma.task.update({
+    where: { id: taskId },
+    data: { status: newStatus },
+  });
+
+  revalidatePath('/');
+  revalidatePath('/tasks');
+}
+
+async function completeTask(formData: FormData) {
+  'use server';
+
+  const taskId = formData.get('taskId')?.toString();
+  if (!taskId) return;
+
+  await prisma.task.update({
+    where: { id: taskId },
+    data: { status: 'COMPLETED' },
+  });
+
+  revalidatePath('/');
+  revalidatePath('/tasks');
+}
+
+export default async function DashboardPage() {
+  const { courses, tasks } = await getDashboardData();
+  const urgentTasks = getUrgentTasks(tasks, 5);
+  const upcomingDeadlines = getUpcomingDeadlines(tasks, 5);
+  const courseSummaries = getCourseSummaries(courses, tasks);
+
   return (
-    <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-      <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <div className="mb-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-indigo-600">מערכת משימות לסטודנטים</p>
-          <h1 className="mt-4 text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
-            נהל מטלות, מועדים וקורסים במקום אחד.
-          </h1>
-          <p className="mt-4 max-w-2xl text-base leading-8 text-slate-600">
-            התחל בקורסים ומשימות ולאחר מכן הוסף סינון לפי סטטוס, עדיפות ותאריך יעד.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link href="/courses" className="inline-flex rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700">
-              קורסים
-            </Link>
-            <Link href="/tasks" className="inline-flex rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700">
-              משימות
-            </Link>
+    <main className="min-h-screen bg-[#f4efe4] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto grid max-w-6xl gap-5">
+        <DashboardHeader />
+
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.85fr)]">
+          <UrgentTasksWidget
+            tasks={urgentTasks}
+            statusOptions={statusOptions}
+            updateTaskStatus={updateTaskStatus}
+            completeTask={completeTask}
+          />
+
+          <div className="grid content-start gap-5">
+            <QuickActionsWidget />
+            <CoursesWidget courseSummaries={courseSummaries} />
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
-            <h2 className="text-xl font-semibold text-slate-900">מודל משימה</h2>
-            <ul className="mt-4 space-y-2 text-slate-600">
-              <li>כותרת</li>
-              <li>תיאור אופציונלי</li>
-              <li>דדליין</li>
-              <li>סטטוס</li>
-              <li>עדיפות</li>
-              <li>קורס קשור</li>
-            </ul>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
-            <h2 className="text-xl font-semibold text-slate-900">שלבים הבאים</h2>
-            <ul className="mt-4 space-y-2 text-slate-600">
-              <li>הצג דדליינים מתקרבים בעמוד הבית</li>
-              <li>הוסף יכולת עריכת קורס ומשימה</li>
-              <li>הצג משימות מקובצות לפי קורס</li>
-              <li>תמוך בסינון לפי סטטוס, עדיפות וקורס</li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="mt-8 rounded-3xl border border-slate-200 bg-slate-50 p-6">
-          <h2 className="text-xl font-semibold text-slate-900">דדליינים מתקרבים</h2>
-          <p className="mt-4 text-slate-600">כאן יוצגו בקרוב המשימות עם הדדליינים הקרובים ביותר.</p>
-        </div>
-      </section>
+        <UpcomingDeadlinesWidget
+          tasks={upcomingDeadlines}
+          statusOptions={statusOptions}
+          updateTaskStatus={updateTaskStatus}
+          completeTask={completeTask}
+        />
+      </div>
     </main>
   );
 }

@@ -1,21 +1,41 @@
 import { prisma } from '@/lib/prisma';
-import type { Course } from '@prisma/client';
+import type { Course, Task } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import Link from 'next/link';
+import { DeleteCourseForm } from '@/components/DeleteCourseForm';
+import { PriorityBadge } from '@/components/tasks/PriorityBadge';
+import { TaskStatusBadge } from '@/components/tasks/TaskStatusBadge';
+import { formatDeadlineHebrew } from '@/lib/taskHelpers';
 
 const DEFAULT_COLOR = '#2563eb';
 
-async function getCourses(): Promise<(Course & { taskCount: number })[]> {
-  const courses = await prisma.course.findMany({ orderBy: { createdAt: 'desc' } });
-  
-  const coursesWithTaskCount = await Promise.all(
-    courses.map(async (course: Course) => {
-      const taskCount = await prisma.task.count({ where: { courseId: course.id } });
-      return { ...course, taskCount };
-    })
-  );
+type CourseWithTaskRelation = Course & { tasks: Task[] };
+type CourseWithTasks = CourseWithTaskRelation & { taskCount: number };
 
-  return coursesWithTaskCount;
+function sortCourseTasks(tasks: Task[]): Task[] {
+  return [...tasks].sort((a, b) => {
+    const aCompleted = a.status === 'COMPLETED';
+    const bCompleted = b.status === 'COMPLETED';
+    if (aCompleted !== bCompleted) return aCompleted ? 1 : -1;
+
+    const aDueTime = a.dueDate?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    const bDueTime = b.dueDate?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    if (aDueTime !== bDueTime) return aDueTime - bDueTime;
+
+    return a.createdAt.getTime() - b.createdAt.getTime();
+  });
+}
+
+async function getCourses(): Promise<CourseWithTasks[]> {
+  const courses: CourseWithTaskRelation[] = await prisma.course.findMany({
+    include: { tasks: true },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return courses.map((course) => {
+    const tasks = sortCourseTasks(course.tasks);
+    return { ...course, tasks, taskCount: tasks.length };
+  });
 }
 
 async function addCourse(formData: FormData) {
@@ -130,8 +150,8 @@ export default async function CoursesPage() {
           </p>
         ) : (
           <div className="space-y-4">
-            {courses.map((course) => (
-              <article key={course.id} className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+            {courses.map((course: CourseWithTasks) => (
+              <article key={course.id} className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-5">
                 <div className="flex items-center gap-4">
                   <span className="inline-flex h-4 w-4 rounded-full" style={{ backgroundColor: course.color }} />
                   <div>
@@ -139,23 +159,57 @@ export default async function CoursesPage() {
                     <p className="text-sm text-slate-600">{course.code || 'ללא קוד'}</p>
                   </div>
                 </div>
-                <form action={deleteCourse} className="flex items-center justify-start sm:justify-end">
-                  <input type="hidden" name="courseId" value={course.id} />
-                  <button
-                    type="submit"
-                    onClick={(e) => {
-                      if (course.taskCount > 0) {
-                        const confirmed = window.confirm(`לקורס הזה יש ${course.taskCount} משימות משויכות. מחיקת הקורס תמחק גם את המשימות שלו. האם אתה בטוח?`);
-                        if (!confirmed) {
-                          e.preventDefault();
-                        }
-                      }
-                    }}
-                    className="rounded-2xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
-                  >
-                    מחיקה
-                  </button>
-                </form>
+                <DeleteCourseForm
+                  courseId={course.id}
+                  taskCount={course.taskCount}
+                  deleteCourse={deleteCourse}
+                />
+
+                <div className="border-t border-slate-200 pt-4">
+                  <h3 className="text-sm font-semibold text-slate-800">משימות בקורס</h3>
+
+                  {course.tasks.length === 0 ? (
+                    <p className="mt-3 rounded-2xl border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-500">
+                      אין משימות בקורס הזה
+                    </p>
+                  ) : (
+                    <div className="mt-3 space-y-2">
+                      <ul className="space-y-2">
+                        {course.tasks.slice(0, 3).map((task: Task) => {
+                          const isCompleted = task.status === 'COMPLETED';
+
+                          return (
+                            <li
+                              key={task.id}
+                              className={`rounded-2xl border border-slate-200 bg-white p-3 ${
+                                isCompleted ? 'text-slate-500 opacity-80' : 'text-slate-800'
+                              }`}
+                            >
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="min-w-0">
+                                  <p className={`font-medium ${isCompleted ? 'line-through' : ''}`}>
+                                    {task.title}
+                                  </p>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    דדליין: {formatDeadlineHebrew(task.dueDate)}
+                                  </p>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  <TaskStatusBadge status={task.status} />
+                                  <PriorityBadge priority={task.priority} />
+                                </div>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+
+                      {course.tasks.length > 3 ? (
+                        <p className="text-sm text-slate-600">ועוד {course.tasks.length - 3} משימות</p>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
               </article>
             ))}
           </div>

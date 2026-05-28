@@ -1,11 +1,10 @@
-export type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED';
+export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'COMPLETED';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
 
 export const statusToHebrew: Record<TaskStatus, string> = {
-  NOT_STARTED: 'לא התחיל',
+  TODO: 'לביצוע',
   IN_PROGRESS: 'בביצוע',
-  DONE: 'הושלם',
-  BLOCKED: 'תקוע',
+  COMPLETED: 'הושלם',
 };
 
 export const priorityToHebrew: Record<TaskPriority, string> = {
@@ -14,11 +13,26 @@ export const priorityToHebrew: Record<TaskPriority, string> = {
   HIGH: 'גבוהה',
 };
 
+// Forest-inspired color palette for priority badges
+export const priorityColors: Record<TaskPriority, { bg: string; text: string }> = {
+  LOW: {
+    bg: 'bg-green-100',
+    text: 'text-green-800',
+  },
+  MEDIUM: {
+    bg: 'bg-amber-100',
+    text: 'text-amber-800',
+  },
+  HIGH: {
+    bg: 'bg-orange-100',
+    text: 'text-orange-800',
+  },
+};
+
 export const hebrewToStatus: Record<string, TaskStatus> = {
-  'לא התחיל': 'NOT_STARTED',
+  'לביצוע': 'TODO',
   'בביצוע': 'IN_PROGRESS',
-  'הושלם': 'DONE',
-  'תקוע': 'BLOCKED',
+  'הושלם': 'COMPLETED',
 };
 
 export const hebrewToPriority: Record<string, TaskPriority> = {
@@ -27,7 +41,9 @@ export const hebrewToPriority: Record<string, TaskPriority> = {
   'גבוהה': 'HIGH',
 };
 
-export function formatDeadlineHebrew(date: Date): string {
+export function formatDeadlineHebrew(date: Date | null): string {
+  if (!date) return 'ללא דדליין';
+
   const months = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
   const day = date.getDate();
   const month = months[date.getMonth()];

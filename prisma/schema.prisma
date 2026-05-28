@@ -8,7 +8,7 @@ datasource db {
 }
 
 model Course {
-  id        String @id @default(cuid())
+  id        String   @id @default(cuid())
   name      String
   code      String?
   color     String
@@ -20,14 +20,14 @@ model Task {
   id          String    @id @default(cuid())
   title       String
   description String?
-  deadline    DateTime
-  status      String    @default("NOT_STARTED")
+  dueDate     DateTime? @map("deadline")
+  status      String    @default("TODO")
   priority    String    @default("MEDIUM")
-  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  courseId    String
+  course      Course?   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId    String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
 
-// Task status values: NOT_STARTED, IN_PROGRESS, DONE, BLOCKED
+// Task status values: TODO, IN_PROGRESS, COMPLETED
 // Task priority values: LOW, MEDIUM, HIGH
